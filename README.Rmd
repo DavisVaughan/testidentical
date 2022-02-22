@@ -1,0 +1,72 @@
+---
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# testidentical
+
+```{r}
+library(testidentical)
+```
+
+
+These are equal
+
+```{r}
+# Same env, different files, simple function (no if {} branch)
+identical(test1_simple, test2_simple)
+```
+
+No way to make these equal
+
+```{r}
+# Same env, different files, more complex function
+identical(test1_if, test2_if)
+
+identical(test1_if, test2_if, ignore.environment = TRUE)
+```
+
+^ This eventually calls `R_body_no_src()` which doesn't recursively remove srcref/srcfile/wholeSrcref attributes.
+https://github.com/wch/r-source/blob/9bb47ca929c41a133786fa8fff7c70162bb75e50/src/main/util.c#L631
+
+This is a problem because the `if {}` closures of `test1_if()` and `tests_if()` contain srcref info
+
+```{r}
+if_body1 <- body(test1_if)[[2]]
+if_body2 <- body(test2_if)[[2]]
+
+# they look the same
+if_body1
+if_body2
+
+# but this closure had srcref info that wasn't removed!
+attributes(if_body1[[3]])
+
+attributes(if_body2[[3]])
+```
+
+So those differing attributes caused the functions to not look identical.
+
+```{r}
+# removeSource() will recursively remove srcref/srcfile/wholeSrcref attributes
+identical(
+  removeSource(test1_if), 
+  removeSource(test2_if)
+)
+
+# See, it was removed before comparison
+attributes(body(removeSource(test1_if))[[2]][[3]])
+```
+
